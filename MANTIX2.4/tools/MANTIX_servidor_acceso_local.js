@@ -419,6 +419,7 @@ app.get('/api/pendientes/:ordenId/historial',auth,permit('pendientes.gestionar')
   }catch(e){console.error('Historial pendiente:',e.message);res.status(503).json({ok:false,error:'No se pudo consultar historial.'});}
 });
 
+require('./MANTIX_dashboard')(app,{pool,auth,permit});
 require('./MANTIX_revision')(app,{pool,auth,permit,localWrite});
 require('./MANTIX_modulos_completos')(app,{pool,auth,permit,localWrite});
 app.use((_req,res)=>res.status(404).json({ok:false,error:'Ruta no encontrada.'}));

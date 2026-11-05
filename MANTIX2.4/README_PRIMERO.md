@@ -1,3 +1,5 @@
+> **Dashboard integral:** esta entrega incluye el tablero de mantenimiento, supervisores, trabajadores y revisiones. Lee primero `ACTUALIZACION_DASHBOARD.md` para instalar y entender sus cálculos. No requiere tablas nuevas.
+
 > **Actualización del módulo de revisión:** antes de instalar esta entrega, lee `ACTUALIZACION_REVISION.md`. Se conserva la base 2.4 y se agrega la migración 003 de fechas de revisión. Las instrucciones de la versión base que aparecen debajo se mantienen como referencia.
 
 # MANTIX 2.4 — Navegación y lenguaje para operación diaria (ISYSA)

@@ -24,7 +24,6 @@ app.get('/centro',auth,(req,res)=>res.sendFile(path.join(__dirname,'MANTIX_centr
 app.get('/bitacora',auth,permit('ordenes.registrar'),(_req,res)=>res.sendFile(path.join(__dirname,'MANTIX_centro.html')));
 app.get('/historial',auth,permit('ordenes.leer'),(_req,res)=>res.sendFile(path.join(__dirname,'MANTIX_centro.html')));
 app.get('/preventivos',auth,permit('catalogos.leer'),(_req,res)=>res.sendFile(path.join(__dirname,'MANTIX_centro.html')));
-app.get('/dashboard',auth,permit('dashboard.leer'),(_req,res)=>res.sendFile(path.join(__dirname,'MANTIX_centro.html')));
 app.get('/turnos',auth,permit('ordenes.registrar'),(_req,res)=>res.sendFile(path.join(__dirname,'MANTIX_centro.html')));
 app.get('/catalogos',auth,permit('catalogos.administrar'),(_req,res)=>res.sendFile(path.join(__dirname,'MANTIX_centro.html')));
 app.get('/auditoria',auth,permit('auditoria.leer'),(_req,res)=>res.sendFile(path.join(__dirname,'MANTIX_centro.html')));
@@ -234,18 +233,7 @@ app.post('/api/v2/admin/importar',...write('catalogos.administrar',async(req)=>{
  await c.query('INSERT INTO mantix.equipos(id,codigo,nombre) VALUES($1,$2,$3)',[uuid(),code||null,name]);}
  added++;}await audit(c,req.actor.id,'IMPORTACION_CATALOGO','importaciones_catalogo',null,{catalogo:b.catalogo,agregados:added,omitidos:skipped});return {agregados:added,omitidos:skipped};});
 }));
-// DASHBOARD: órdenes únicas, intervenciones individuales. No se inventan horas ni disponibilidad.
-app.get('/api/v2/dashboard',...read('dashboard.leer',async(req)=>{
- const dateOk=isDate(req.query.desde)&&isDate(req.query.hasta),args=dateOk?[req.query.desde,req.query.hasta]:[];
- const condition=dateOk?`WHERE creada_en >= $1::date AND creada_en < ($2::date + interval '1 day')`:'';
- const orders=await q(`SELECT count(*)::int total,count(*) FILTER(WHERE estado_operativo='PENDIENTE')::int pendientes,count(*) FILTER(WHERE estado_operativo='TERMINADA')::int terminadas,count(*) FILTER(WHERE estado_operativo='ABIERTA')::int abiertas,count(*) FILTER(WHERE estado_operativo='EN_PROCESO')::int en_proceso FROM mantix.ordenes_trabajo ${condition}`,args);
- const interv=await q(`SELECT u.nombre_mostrar supervisor,count(*)::int intervenciones,count(*) FILTER(WHERE i.estado='TERMINADA')::int terminadas FROM mantix.intervenciones i JOIN mantix.usuarios u ON u.id=i.supervisor_id ${dateOk?'WHERE i.creada_en >= $1::date AND i.creada_en < ($2::date + interval \'1 day\')':''} GROUP BY u.id,u.nombre_mostrar ORDER BY intervenciones DESC`,args);
- const type=await q(`SELECT tipo_mantenimiento_codigo tipo,count(*)::int cantidad FROM mantix.ordenes_trabajo ${condition} GROUP BY tipo_mantenimiento_codigo`,args);
- const reviews=await q(`SELECT count(*) FILTER (WHERE estado_revision='EN_REVISION')::int por_revisar,count(*) FILTER (WHERE estado_revision='APROBADA')::int aprobadas,count(*) FILTER (WHERE estado_revision='RECHAZADA')::int rechazadas FROM mantix.intervenciones`);
- const preventive=await q(`SELECT count(*) FILTER(WHERE fecha_original<=now() AND estado='COMPLETADA' AND completada_en<=COALESCE(fecha_limite_original,fecha_original))::int a_tiempo,count(*) FILTER(WHERE fecha_original<=now())::int vencidas_hasta_hoy,count(*) FILTER(WHERE estado='PROGRAMADA' AND fecha_vigente<now())::int atrasadas FROM mantix.ocurrencias_preventivas`);
- const age=await q(`SELECT o.id,o.numero_orden,o.descripcion,round(extract(epoch from now()-o.creada_en)/86400,1) dias_abierta FROM mantix.ordenes_trabajo o WHERE o.estado_operativo IN ('ABIERTA','EN_PROCESO','PENDIENTE') ORDER BY o.creada_en LIMIT 15`);
- return {ordenes:orders.rows[0],por_supervisor:interv.rows,por_tipo:type.rows,revisiones:reviews.rows[0],preventivos:preventive.rows[0],antiguedad:age.rows};
-}));
+// Dashboard de solo lectura centralizado en MANTIX_dashboard.js.
 app.get('/api/v2/auditoria',...read('auditoria.leer',async()=>{const r=await q(`SELECT a.accion,a.entidad,a.registrada_en,u.nombre_mostrar actor FROM mantix.auditoria a LEFT JOIN mantix.usuarios u ON u.id=a.actor_usuario_id ORDER BY a.registrada_en DESC LIMIT 100`);return {datos:r.rows};}));
 
 // MANTIX 2.3: edición de bitácora únicamente mientras la intervención NO fue entregada ni enviada.

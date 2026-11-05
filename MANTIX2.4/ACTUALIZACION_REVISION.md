@@ -1,6 +1,6 @@
 # MANTIX 2.4 · Módulo de revisión del jefe
 
-La base es el ZIP MANTIX_2_4 que eligió la usuaria. Se conservan la captura del supervisor, la bitácora, navegación, programación de turnos, pendientes, propuestas de catálogos y permisos existentes. El Dashboard se mantiene como estaba; su ampliación corresponde a la siguiente etapa.
+La base es el ZIP MANTIX_2_4 que eligió la usuaria. Se conservan la captura del supervisor, la bitácora, navegación, programación de turnos, pendientes, propuestas de catálogos y permisos existentes. La ampliación del Dashboard se describe en ACTUALIZACION_DASHBOARD.md.
 
 ## Instalación en Laragon
 

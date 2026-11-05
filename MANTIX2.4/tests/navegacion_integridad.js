@@ -5,6 +5,7 @@ const pages=fs.readdirSync(base).filter(f=>f.endsWith('.html'));
 const server=fs.readFileSync(path.join(base,'MANTIX_servidor_acceso_local.js'),'utf8');
 const modules=fs.readFileSync(path.join(base,'MANTIX_modulos_completos.js'),'utf8');
 const revision=fs.readFileSync(path.join(base,'MANTIX_revision.js'),'utf8');
+const dashboard=fs.readFileSync(path.join(base,'MANTIX_dashboard.js'),'utf8');
 const routes=new Set(['/', '/centro','/bitacora','/historial','/revision','/preventivos','/dashboard','/turnos','/catalogos','/auditoria','/correcciones','/ejecucion','/pendientes','/administracion/usuarios']);
 let count=0;
 for(const page of pages){
@@ -12,7 +13,7 @@ for(const page of pages){
  for(const match of html.matchAll(/\bhref=["'](\/[^"']*)["']/g)){
   if(!match[1].startsWith('//')){
    if(!routes.has(match[1]))throw Error(`Ruta no registrada ${match[1]} en ${page}`);
-   if(match[1]!=='/' && !(server+modules+revision).includes(`'${match[1]}'`))throw Error(`Ruta sin controlador ${match[1]}`);
+   if(match[1]!=='/' && !(server+modules+revision+dashboard).includes(`'${match[1]}'`))throw Error(`Ruta sin controlador ${match[1]}`);
    count++;
   }
  }

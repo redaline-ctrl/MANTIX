@@ -16,7 +16,8 @@
     "probar:turnos": "node tests/turnos_inteligentes.js",
     "comprobar:navegacion": "node tests/navegacion_integridad.js",
     "migrar:revision": "node tools/MANTIX_migrar_revision.js",
-    "test:revision": "node tests/revision_integracion.js"
+    "test:revision": "node tests/revision_integracion.js",
+    "test:dashboard": "node tests/dashboard_integracion.js"
   },
   "dependencies": {
     "express": "4.22.3",

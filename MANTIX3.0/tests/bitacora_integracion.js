@@ -61,14 +61,31 @@ const pool=new Pool({database:process.env.PGDATABASE});
   const browser=await require('playwright').chromium.launch({headless:true,executablePath:process.env.CHROMIUM_PATH||'/usr/bin/chromium',args:['--no-sandbox']});
   try{const page=await browser.newPage({viewport:{width:1600,height:1000},extraHTTPHeaders:{'Test-Actor':'sup'}});const errors=[];page.on('pageerror',e=>errors.push(e.message));
    await page.goto(base+'/bitacora?jornada='+uiShift);await page.getByRole('button',{name:'+ Agregar actividad'}).click();
-   await page.locator('#mode').selectOption('OPERATIVO');await page.locator('#equipment').selectOption(eq);await page.locator('#description').fill('Inspección operativa de prueba en navegador');await page.locator('#save').click();
-   await page.getByText('Fila guardada.',{exact:false}).waitFor();await page.getByRole('button',{name:'Actualizar',exact:true}).last().click();
-   await page.locator('#reason').fill('No se inició por falta de acceso al equipo.');await page.locator('#save').click();await page.locator('#editor').waitFor({state:'detached'});
+   assert.equal(await page.locator('table #editor').count(),0);assert.equal(await page.locator('#execution').evaluate(e=>e.open),false);
+   await page.locator('#mode').selectOption('OPERATIVO');assert(await page.locator('#numBox').isHidden());
+   await page.locator('#equipmentList input[value="'+eq+'"]').check();
+   await page.locator('#equipmentSearch').fill('SIN COINCIDENCIAS 987654');assert.equal(await page.locator('#equipmentList input').count(),0);assert.equal(await page.locator('#equipmentSelected button').count(),1);
+   await page.locator('#equipmentSearch').fill('');assert(await page.locator('#equipmentList input[value="'+eq+'"]').isChecked());
+   await page.locator('#equipmentSelected button').click();assert.equal(await page.locator('#equipmentList input[value="'+eq+'"]').isChecked(),false);
+   await page.locator('#equipmentList input[value="'+eq+'"]').check();await page.locator('#description').fill('Inspección operativa de prueba en navegador');
+   await page.locator('#saveAnother').click();await page.locator('#description').waitFor();await page.waitForFunction(()=>document.querySelector('#description').value==='');
+   assert.equal((await pool.query('SELECT count(*)::int n FROM mantix.intervenciones WHERE asignacion_turno_id=$1',[uiShift])).rows[0].n,1);
+   await page.locator('#num').fill('UI-'+uuid());await page.locator('#description').fill('Segunda actividad asignada durante el turno');await page.locator('#equipmentList input[value="'+eq+'"]').check();await page.locator('#reason').fill('No se inició por falta de acceso al equipo.');
+   fs.mkdirSync('/workspace/artifacts',{recursive:true});await page.screenshot({path:'/workspace/artifacts/captura-ordenada-desktop.png',fullPage:true});
+   await page.setViewportSize({width:390,height:844});assert.equal(await page.locator('#editor').evaluate(el=>el.scrollWidth<=el.clientWidth),true);assert.equal(await page.locator('body').evaluate(el=>el.scrollWidth<=innerWidth),true);
+   await page.screenshot({path:'/workspace/artifacts/captura-ordenada-movil.png',fullPage:true});await page.setViewportSize({width:1366,height:900});
+   await page.locator('#save').click();await page.locator('#editor').waitFor({state:'detached'});
+   const uiRows=(await call('/api/bitacora/jornadas/'+uiShift)).filas;
+   await page.locator('[data-edit="'+uiRows[0].id+'"]').click();
+   await page.locator('#state').selectOption('TERMINADA');assert.equal(await page.locator('#execution').evaluate(e=>e.open),true);assert(await page.locator('#reasonBox').isHidden());
+   await page.locator('#staffList input[value="'+staff+'"]').check();await page.locator('#staffSearch').fill('SIN RESULTADOS 987654');assert.equal(await page.locator('#staffSelected button').count(),1);await page.locator('#staffSearch').fill('');
+   await page.locator('#start').fill('2026-11-09T07:00');await page.locator('#end').fill('2026-11-09T09:00');await page.locator('#acts').fill('Inspección y ajuste completados en el equipo.');
+   await page.screenshot({path:'/workspace/artifacts/captura-ejecucion-desktop.png',fullPage:true});
+   await page.locator('#save').click();await page.locator('#editor').waitFor({state:'detached'});
+   const updated=(await call('/api/bitacora/jornadas/'+uiShift)).filas.find(i=>i.id===uiRows[0].id);assert.equal(updated.estado,'TERMINADA');assert(updated.ejecutantes.includes(staff));assert(updated.equipos.includes(eq));
    await page.getByRole('button',{name:'Revisar y cerrar turno',exact:true}).click();await page.getByRole('button',{name:'Cerrar turno y enviar reporte',exact:true}).click();
-   await page.getByText('Turno cerrado. Reporte enviado',{exact:false}).waitFor();assert(await page.locator('#add').isDisabled());
-   fs.mkdirSync('/workspace/artifacts',{recursive:true});await page.screenshot({path:'/workspace/artifacts/bitacora-turno.png',fullPage:true});assert.deepEqual(errors,[]);
-   await page.setViewportSize({width:390,height:844});assert.equal(await page.locator('body').evaluate(el=>el.scrollWidth<=innerWidth),true);
-   console.log('OK: navegador, captura sin horas, actualización, cierre y vista móvil sin errores JavaScript.');
+   await page.getByText('Turno cerrado. Reporte enviado',{exact:false}).waitFor();assert(await page.locator('#add').isDisabled());assert.deepEqual(errors,[]);
+   console.log('OK: formulario fuera de la tabla, búsqueda y selección conservada, quitar selección, guardado consecutivo, ejecución y cierre; escritorio/móvil sin errores JavaScript.');
   }finally{await browser.close();}
  }
  // Exercise the real server middleware, session authentication and legacy continuity too.

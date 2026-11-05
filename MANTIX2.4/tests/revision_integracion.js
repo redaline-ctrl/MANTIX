@@ -83,9 +83,10 @@ const pool=new Pool({database:process.env.PGDATABASE});let server,checks=0;
     if(who==='admin'){assert(await page.locator('#nav').isVisible());continue;}
     assert(await page.locator('#nav').isHidden());
     if(who==='sup')continue;
-    assert(await page.locator('#contextNav').isVisible());const navText=await page.locator('#contextNav').textContent();assert(navText.includes('Dashboard'));assert(navText.includes('Historial'));assert(!navText.includes('Registrar trabajo'));
-    if(who==='chief'){assert(navText.includes('Revisar trabajos'));assert(navText.includes('Preventivos'));}else{assert(!navText.includes('Revisar trabajos'));assert(!navText.includes('Preventivos'));}
-    await page.locator('#contextNav').getByRole('button',{name:'Historial',exact:false}).click();await page.waitForURL('**/historial');assert(await page.locator('#nav').isHidden());await page.locator('#contextNav').getByRole('button',{name:'Mi centro',exact:false}).click();await page.waitForURL('**/centro');
+    assert(await page.locator('#contextNav').isHidden());
+    const destinations=await page.locator('#content a.action').evaluateAll(nodes=>nodes.map(n=>n.getAttribute('href')));assert.equal(destinations.length,who==='chief'?4:2);assert.equal(new Set(destinations).size,destinations.length);assert.equal(await page.locator('a[href="/historial"]:visible').count(),1);
+    if(who==='chief'){assert(destinations.includes('/revision'));assert(destinations.includes('/preventivos'));}else{assert(!destinations.includes('/revision'));assert(!destinations.includes('/preventivos'));}
+    await page.locator('#content a[href="/historial"]').click();await page.waitForURL('**/historial');assert(await page.locator('#nav').isHidden());assert.equal(await page.locator('#contextNav button').count(),1);await page.locator('#contextNav').getByRole('button',{name:'Volver al centro',exact:false}).click();await page.waitForURL('**/centro');
     await page.screenshot({path:'/workspace/artifacts/centro-'+who+'-sin-lateral.png',fullPage:true});await page.setViewportSize({width:390,height:844});assert.equal(await page.locator('body').evaluate(e=>e.scrollWidth<=innerWidth),true);assert(await page.locator('#nav').isHidden());
    }
    assert.deepEqual(errors,[]);console.log('OK: navegador, revisión/corrección y navegación superior de jefe/coordinador en escritorio y móvil; supervisor sin lateral y administrador conservado.');

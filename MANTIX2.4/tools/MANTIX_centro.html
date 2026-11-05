@@ -56,14 +56,11 @@ function visibleTab(id){const e=document.querySelector('[data-tab="'+id+'"]');re
 function contextualNav(id){
  const host=$('contextNav');if(!host)return;
  const management=!role('SUPERVISOR')&&(role('JEFE')||role('COORDINADOR'));
- host.replaceChildren();if(id==='inicio'&&!management){host.classList.add('hide');return;}
+ host.replaceChildren();if(id==='inicio'){host.classList.add('hide');return;}
  host.classList.remove('hide');
  const links=[{title:'⌂ Mi centro',tab:'inicio'}];
  if(management){
-  if(role('JEFE')&&allowed('revision.gestionar'))links.push({title:'✓ Revisar trabajos',tab:'revision'});
-  if(allowed('dashboard.leer'))links.push({title:'▥ Dashboard',tab:'dashboard'});
-  if(role('JEFE')&&allowed('catalogos.leer'))links.push({title:'⚙ Preventivos',tab:'preventivos'});
-  if(allowed('ordenes.leer'))links.push({title:'◷ Historial',tab:'historial'});
+  links[0].title='← Volver al centro';
  }else if(role('SUPERVISOR')){
   if(id==='bitacora')links.push({title:'＋ Registrar trabajo',url:'/ejecucion'});
   else if(id==='historial')links.push({title:'▤ Mi bitácora',tab:'bitacora'});
@@ -136,12 +133,13 @@ async function supervisorShiftSummary(id,date){
  }catch(e){root.innerHTML='<p class="muted">No se pudo consultar tu jornada.</p>';}
 }
 function home(){
+ const managementAction=(href,title,desc,button)=>panel(title,`<p class="muted">${esc(desc)}</p><a href="${href}" class="action">${esc(button)}</a>`);
  const action=(href,title,desc,icon='⚡')=>panel(icon+' '+esc(title),`<p class="muted">${esc(desc)}</p><a href="${href}" class="action">Abrir módulo</a>`);
  let items=[];
  if(role('SUPERVISOR')){
   items=[action('/bitacora','Mi bitácora','Ver y actualizar trabajos durante la jornada.','▤'),action('/pendientes','Pendientes','Tomar o entregar trabajos de otros turnos.','⟳'),action('/historial','Mi historial','Trabajos anteriores y su seguimiento.','◷'),action('/correcciones','Correcciones','Solicitudes autorizadas por el jefe.','✎')];
- }else if(role('JEFE')){items=[action('/revision','Validar trabajos','Aprobar o rechazar intervenciones con trazabilidad.','✓'),action('/preventivos','Autorizar preventivos','Rutinas y solicitudes de reprogramación.','⚙'),action('/dashboard','Dashboard del jefe','Indicadores de órdenes, pendientes, intervenciones y cumplimiento.','▥'),action('/historial','Historial general','Consulta de trabajos y sus supervisores.','▤')];}
- else if(role('COORDINADOR')){items=[action('/dashboard','Dashboard de mantenimiento','Análisis por equipo, fecha, turno y supervisor, sin editar registros.','▥'),action('/historial','Historial de consulta','Trazabilidad operativa, únicamente lectura.','▤')];}
+ }else if(role('JEFE')){items=[managementAction('/revision','Revisión de trabajos','Revisar reportes terminados, devolver correcciones y resolver solicitudes.','Revisar reportes'),managementAction('/dashboard','Indicadores de mantenimiento','Consultar resultados, supervisores, participación del personal y revisiones.','Ver indicadores'),managementAction('/preventivos','Programación preventiva','Consultar y programar actividades preventivas.','Ver programación'),managementAction('/historial','Consulta de órdenes','Buscar una orden y revisar toda su continuidad entre turnos.','Buscar órdenes')];}
+ else if(role('COORDINADOR')){items=[managementAction('/dashboard','Indicadores de mantenimiento','Analizar mantenimiento, supervisores, trabajadores y revisiones en un solo tablero.','Ver indicadores'),managementAction('/historial','Consulta de órdenes','Localizar órdenes y consultar su historial, sin modificar trabajos.','Buscar órdenes')];}
  else if(role('ADMINISTRADOR')){items=[action('/administracion/usuarios','Administrar usuarios','Cuentas, roles, altas, bajas lógicas y contraseñas.','♙'),action('/propuestas','Validar nombres provisionales','Revisar equipos y ejecutantes agregados por los supervisores.','✓'),action('/catalogos','Equipos y empleados','Altas, bajas lógicas e importación validada.','▦'),action('/auditoria','Auditoría','Registro de cambios y responsables.','☷')];}
  $('content').innerHTML=role('SUPERVISOR')?`<section class="panel shift-command" id="todayShift"></section><div class="shift-actions"><a class="supervisor-mainbutton" href="/ejecucion">＋ Registrar nuevo trabajo</a><button class="primary" id="simpleClose">✓ Finalizar turno</button></div><div class="supervisor-quick">${items.join('')}</div>`:`<div class="layout three">${items.join('')||panel('Sin rol asignado','Contacta al administrador.')}</div>`;
  if(role('SUPERVISOR')){activeWorkDate().then(d=>supervisorShiftSummary('todayShift',d)).catch(e=>msg(e.message,true));$('simpleClose').onclick=openCloseDialog;}

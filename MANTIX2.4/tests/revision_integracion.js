@@ -78,7 +78,17 @@ const pool=new Pool({database:process.env.PGDATABASE});let server,checks=0;
    await page.screenshot({path:'/workspace/artifacts/revision-jefe-movil.png',fullPage:true});
    await context.addCookies([{name:'mantix_session',value:cookies.sup.split('=')[1],url:base}]);await page.goto(base+'/correcciones');await page.locator('.acts').fill('Actividades detalladas corregidas desde el navegador.');await page.getByRole('button',{name:'Guardar y reenviar al jefe'}).click();await page.getByText('Corrección guardada y enviada al jefe.',{exact:false}).waitFor();
    await context.addCookies([{name:'mantix_session',value:cookies.chief.split('=')[1],url:base}]);await page.goto(base+'/revision');await page.locator('#supervisor').selectOption(users.sup.id);await page.getByRole('button',{name:'Aplicar filtros',exact:true}).click();await page.locator('[data-detail="'+ui+'"]').click();await page.locator('#approve').click();await page.locator('#detail').waitFor({state:'hidden'});
-   assert.deepEqual(errors,[]);console.log('OK: navegador, filtros, detalle, rechazo con motivo, bitácoras, corrección y aprobación; vista móvil sin desbordamiento.');
+   for(const who of ['chief','coord','admin','sup']){
+    await context.addCookies([{name:'mantix_session',value:cookies[who].split('=')[1],url:base}]);await page.setViewportSize({width:1440,height:1000});await page.goto(base+'/centro');await page.locator('#who').filter({hasText:'Prueba '+who}).waitFor();await page.locator('#content .panel').first().waitFor();
+    if(who==='admin'){assert(await page.locator('#nav').isVisible());continue;}
+    assert(await page.locator('#nav').isHidden());
+    if(who==='sup')continue;
+    assert(await page.locator('#contextNav').isVisible());const navText=await page.locator('#contextNav').textContent();assert(navText.includes('Dashboard'));assert(navText.includes('Historial'));assert(!navText.includes('Registrar trabajo'));
+    if(who==='chief'){assert(navText.includes('Revisar trabajos'));assert(navText.includes('Preventivos'));}else{assert(!navText.includes('Revisar trabajos'));assert(!navText.includes('Preventivos'));}
+    await page.locator('#contextNav').getByRole('button',{name:'Historial',exact:false}).click();await page.waitForURL('**/historial');assert(await page.locator('#nav').isHidden());await page.locator('#contextNav').getByRole('button',{name:'Mi centro',exact:false}).click();await page.waitForURL('**/centro');
+    await page.screenshot({path:'/workspace/artifacts/centro-'+who+'-sin-lateral.png',fullPage:true});await page.setViewportSize({width:390,height:844});assert.equal(await page.locator('body').evaluate(e=>e.scrollWidth<=innerWidth),true);assert(await page.locator('#nav').isHidden());
+   }
+   assert.deepEqual(errors,[]);console.log('OK: navegador, revisión/corrección y navegación superior de jefe/coordinador en escritorio y móvil; supervisor sin lateral y administrador conservado.');
   }finally{await browser.close();}
  }
  // Pagination must not truncate or duplicate records.

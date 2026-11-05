@@ -16,6 +16,8 @@ No ejecutes de nuevo la instalación 001, la migración 002, importaciones de ca
 
 ## Uso
 
+El centro del jefe y del coordinador usa navegación superior, sin barra lateral, como el de los supervisores. El jefe conserva revisión, Dashboard, preventivos e historial; el coordinador conserva Dashboard e historial. Este ajuste visual no cambia permisos ni cálculos.
+
 Selecciona un periodo de hasta un año, supervisor, equipo, tipo, turno o estado operativo. Los filtros actualizan los indicadores automáticamente; también puedes pulsar Consultar. Este mes, Este año y Limpiar filtros ofrecen accesos rápidos.
 
 El filtro de trabajador afecta solo al área de personal y a su detalle. No cambia los indicadores generales de mantenimiento ni de supervisores. Pulsa el nombre de un supervisor o trabajador para consultar sus intervenciones. Puedes ordenar a los trabajadores por órdenes con participación, horas-hombre medidas o intervenciones aprobadas.

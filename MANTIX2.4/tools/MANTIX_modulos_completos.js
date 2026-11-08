@@ -153,15 +153,63 @@ app.patch('/api/v2/turnos/:id/horario',localWrite,auth,permit('ordenes.registrar
   await audit(c,req.actor.id,'HORARIO_TURNO_ACTUALIZADO','asignaciones_turno',id,{fin_real:fin});return {id};
  });
 }));
-app.post('/api/v2/turnos/:id/cerrar',...write('ordenes.registrar',async(req)=>{
- const id=req.params.id,ob=text(req.body?.observaciones,1500);if(!isId(id))throw error('Turno invalido.');
- return tx(async c=>{const r=await c.query('SELECT * FROM mantix.asignaciones_turno WHERE id=$1 FOR UPDATE',[id]);const a=r.rows[0];if(!a||a.supervisor_id!==req.actor.id)throw error('Turno no pertenece a tu usuario.',403);
- if(a.extraordinario&&(!a.inicio_real||!a.fin_real))throw error('La jornada extraordinaria requiere horas reales completas antes de cerrarse.',409);
- const existing=await c.query('SELECT id FROM mantix.cierres_turno WHERE asignacion_turno_id=$1',[id]);if(existing.rowCount)throw error('Turno ya cerrado.',409);
- const pending=await c.query(`SELECT i.id FROM mantix.intervenciones i WHERE i.supervisor_id=$1 AND i.fecha_operativa=$2 AND i.estado IN ('EN_PROCESO','PENDIENTE_REFACCION','PENDIENTE_CONTINUIDAD') AND i.entregada_en IS NULL AND NOT EXISTS(SELECT 1 FROM mantix.intervenciones n WHERE n.orden_id=i.orden_id AND n.creada_en>i.creada_en) LIMIT 1`,[req.actor.id,a.fecha_operativa]);if(pending.rowCount)throw error('Entrega primero todas las intervenciones activas o pendientes del turno.',409);
- const cid=uuid();await c.query('INSERT INTO mantix.cierres_turno(id,asignacion_turno_id,cerrado_por,observaciones) VALUES($1,$2,$3,$4)',[cid,id,req.actor.id,ob]);
- const delivered=await c.query(`SELECT i.id,i.orden_id,s.descripcion FROM mantix.intervenciones i LEFT JOIN LATERAL (SELECT descripcion FROM mantix.seguimientos WHERE intervencion_id=i.id AND tipo='ENTREGA' ORDER BY registrado_en DESC LIMIT 1) s ON true WHERE i.supervisor_id=$1 AND i.fecha_operativa=$2 AND i.estado IN ('PENDIENTE_REFACCION','PENDIENTE_CONTINUIDAD') AND i.entregada_en IS NOT NULL`,[req.actor.id,a.fecha_operativa]);
- for(const d of delivered.rows){const exists=await c.query('SELECT 1 FROM mantix.entregas_pendientes WHERE intervencion_origen_id=$1',[d.id]);if(!exists.rowCount)await c.query('INSERT INTO mantix.entregas_pendientes(id,orden_id,intervencion_origen_id,cierre_turno_id,detalle_pendiente) VALUES($1,$2,$3,$4,$5)',[uuid(),d.orden_id,d.id,cid,d.descripcion||'Pendiente entregado en el cierre del turno']);}await audit(c,req.actor.id,'TURNO_CERRADO','cierres_turno',cid,{asignacion:id});return {cierre_id:cid};});
+// Resumen y confirmación única: entregas, envío y cierre se confirman juntos.
+const guardDay=require('./MANTIX_jornada_guard');
+async function closureRows(c,actor,fecha){return (await c.query(`SELECT i.*,o.numero_orden,o.descripcion,
+ (SELECT n.id FROM mantix.intervenciones n WHERE n.orden_id=i.orden_id ORDER BY n.creada_en DESC,n.id DESC LIMIT 1) ultima_id,
+ (SELECT s.descripcion FROM mantix.seguimientos s WHERE s.intervencion_id=i.id AND s.tipo='ENTREGA' ORDER BY s.registrado_en DESC,s.id DESC LIMIT 1) detalle_entrega
+ FROM mantix.intervenciones i JOIN mantix.ordenes_trabajo o ON o.id=i.orden_id WHERE i.supervisor_id=$1 AND i.fecha_operativa=$2 ORDER BY i.id`,[actor,fecha])).rows;}
+function closureRevision(j,rows){return crypto.createHash('sha256').update(JSON.stringify([j.id,j.inicio_real,j.fin_real,rows.map(i=>[i.id,i.version,i.estado,i.estado_revision,i.inicio_real,i.fin_real,i.actividades,i.entregada_en,i.ultima_id,i.detalle_entrega])])).digest('hex');}
+app.get('/api/v2/turnos/:id/preparar-cierre',...read('ordenes.registrar',async req=>{
+ if(!isId(req.params.id))throw error('Jornada inválida.');
+ const j=(await q('SELECT a.*,ct.id cierre_id FROM mantix.asignaciones_turno a LEFT JOIN mantix.cierres_turno ct ON ct.asignacion_turno_id=a.id WHERE a.id=$1',[req.params.id])).rows[0];
+ if(!j||j.supervisor_id!==req.actor.id)throw error('Jornada no autorizada.',403);
+ const rows=await closureRows(pool,req.actor.id,j.fecha_operativa);
+ return {jornada:j,revision:closureRevision(j,rows),trabajos:rows.map(i=>({...i,requiere_entrega:i.id===i.ultima_id&&!i.entregada_en&&['EN_PROCESO',...handoffStates].includes(i.estado),para_enviar:i.estado==='TERMINADA'&&i.estado_revision==='NO_ENVIADA'}))};
+}));
+app.post('/api/v2/turnos/:id/cerrar',...write('ordenes.registrar',async req=>{
+ const id=req.params.id,b=req.body||{};if(!isId(id))throw error('Turno inválido.');
+ return tx(async c=>{
+  const probe=(await c.query('SELECT * FROM mantix.asignaciones_turno WHERE id=$1',[id])).rows[0];
+  if(!probe||probe.supervisor_id!==req.actor.id)throw error('Turno no pertenece a tu usuario.',403);
+  await c.query('SELECT pg_advisory_xact_lock(hashtext($1))',['mantix.turno.'+req.actor.id+'.'+guardDay.key(probe.fecha_operativa)]);
+  const a=(await c.query('SELECT * FROM mantix.asignaciones_turno WHERE id=$1 FOR UPDATE',[id])).rows[0];
+  const existing=(await c.query('SELECT id FROM mantix.cierres_turno WHERE asignacion_turno_id=$1',[id])).rows[0];
+  if(existing){const previous=(await c.query("SELECT datos_despues FROM mantix.auditoria WHERE entidad_id=$1 AND accion='TURNO_CERRADO' ORDER BY registrada_en DESC LIMIT 1",[existing.id])).rows[0]?.datos_despues||{};return {cierre_id:existing.id,repetido:true,enviadas:previous.enviadas||0,entregadas:previous.entregadas||0};}
+  // Orden de locks compatible con toma/entrega: jornada, órdenes, intervenciones.
+  const orders=await c.query('SELECT DISTINCT orden_id FROM mantix.intervenciones WHERE supervisor_id=$1 AND fecha_operativa=$2 ORDER BY orden_id',[req.actor.id,a.fecha_operativa]);
+  for(const o of orders.rows)await c.query('SELECT id FROM mantix.ordenes_trabajo WHERE id=$1 FOR UPDATE',[o.orden_id]);
+  await c.query('SELECT id FROM mantix.intervenciones WHERE supervisor_id=$1 AND fecha_operativa=$2 ORDER BY id FOR UPDATE',[req.actor.id,a.fecha_operativa]);
+  const rows=await closureRows(c,req.actor.id,a.fecha_operativa);
+  if(b.revision!==closureRevision(a,rows))throw error('La bitácora cambió. Cierra este resumen y vuelve a revisar el turno antes de confirmar.',409);
+  const end=b.fin_real==null?a.fin_real:iso(b.fin_real);
+  if(b.fin_real!=null&&!end)throw error('Hora real de salida inválida.');
+  if(a.extraordinario&&(!a.inicio_real||!end||new Date(end)<=new Date(a.inicio_real)))throw error('La jornada extraordinaria requiere una salida posterior a la entrada.',409);
+  const deliveries=b.entregas||[];if(!Array.isArray(deliveries)||deliveries.length>rows.length||deliveries.some(d=>!d||!isId(d.id))||new Set(deliveries.map(d=>d.id)).size!==deliveries.length)throw error('Entregas inválidas.');
+  const pending=rows.filter(i=>i.id===i.ultima_id&&!i.entregada_en&&['EN_PROCESO',...handoffStates].includes(i.estado));
+  if(deliveries.length!==pending.length||deliveries.some(d=>!pending.some(i=>i.id===d.id)))throw error('Completa la entrega de cada trabajo pendiente.',409);
+  for(const i of rows.filter(i=>i.estado==='TERMINADA'&&i.estado_revision==='NO_ENVIADA'))if(!i.inicio_real||!i.fin_real||new Date(i.fin_real)<new Date(i.inicio_real)||!i.actividades?.trim())throw error('Completa los horarios y actividades de '+(i.numero_orden||i.descripcion)+' antes de enviar.',409);
+  for(const i of pending){const d=deliveries.find(x=>x.id===i.id);if(typeof d.detalle!=='string'||d.detalle.trim().length<10||d.detalle.length>3000||!handoffStates.includes(d.estado))throw error('Explica qué falta (10 a 3000 caracteres) y elige continuidad o refacción para '+(i.numero_orden||i.descripcion)+'.');
+   if(i.estado_revision!=='NO_ENVIADA')throw error('El pendiente ya cambió de revisión. Actualiza tu bitácora.',409);
+   if((await c.query('SELECT 1 FROM mantix.tomas_activas WHERE orden_id=$1 AND expira_en>now()',[i.orden_id])).rowCount)throw error('Un pendiente está tomado. Actualiza el resumen antes de cerrar.',409);
+  }
+  const cid=uuid();let sent=0;
+  if(a.extraordinario)await c.query('UPDATE mantix.asignaciones_turno SET fin_real=$1 WHERE id=$2',[end,id]);
+  await c.query('INSERT INTO mantix.cierres_turno(id,asignacion_turno_id,cerrado_por,observaciones) VALUES($1,$2,$3,$4)',[cid,id,req.actor.id,text(b.observaciones,1500)]);
+  for(const i of pending){const d=deliveries.find(x=>x.id===i.id),detail=d.detalle.trim();
+   await c.query('UPDATE mantix.intervenciones SET estado=$1,entregada_en=now(),version=version+1 WHERE id=$2',[d.estado,i.id]);
+   await c.query("UPDATE mantix.ordenes_trabajo SET estado_operativo='PENDIENTE',version=version+1 WHERE id=$1",[i.orden_id]);
+   await c.query("INSERT INTO mantix.seguimientos(id,orden_id,intervencion_id,supervisor_id,tipo,descripcion,ocurrido_en) VALUES($1,$2,$3,$4,'ENTREGA',$5,now())",[uuid(),i.orden_id,i.id,req.actor.id,detail]);
+   await audit(c,req.actor.id,'PENDIENTE_ENTREGADO','ordenes_trabajo',i.orden_id,{intervencion_id:i.id,detalle:detail,cierre_id:cid});
+  }
+  for(const i of rows.filter(i=>i.estado==='TERMINADA'&&i.estado_revision==='NO_ENVIADA')){
+   await c.query("UPDATE mantix.intervenciones SET estado_revision='EN_REVISION',enviada_revision_en=now(),resuelta_revision_en=NULL WHERE id=$1",[i.id]);
+   await audit(c,req.actor.id,'INTERVENCION_ENVIADA','intervenciones',i.id,{version:i.version,cierre_id:cid});sent++;
+  }
+  const delivered=await closureRows(c,req.actor.id,a.fecha_operativa);
+  for(const i of delivered.filter(i=>handoffStates.includes(i.estado)&&i.entregada_en))await c.query('INSERT INTO mantix.entregas_pendientes(id,orden_id,intervencion_origen_id,cierre_turno_id,detalle_pendiente) SELECT $1,$2,$3,$4,$5 WHERE NOT EXISTS(SELECT 1 FROM mantix.entregas_pendientes WHERE intervencion_origen_id=$3)',[uuid(),i.orden_id,i.id,cid,i.detalle_entrega||'Pendiente entregado']);
+  await audit(c,req.actor.id,'TURNO_CERRADO','cierres_turno',cid,{asignacion:id,enviadas:sent,entregadas:pending.length});return {cierre_id:cid,enviadas:sent,entregadas:pending.length};
+ });
 }));
 // PREVENTIVOS (plan unico o recurrente). Generacion explícita de ocurrencias para 12 meses.
 function occurrenceDates(b){const start=new Date(b.inicio+'T12:00:00Z');if(!Number.isFinite(start.getTime()))throw error('Fecha de inicio invalida.');
@@ -205,8 +253,8 @@ app.post('/api/v2/preventivos/:id/crear-orden',...write('ordenes.registrar',asyn
 app.post('/api/v2/ordenes/:id/intervenir',...write('ordenes.registrar',async(req)=>{
  const oid=req.params.id,b=req.body||{},acts=text(b.actividades,5000),start=iso(b.inicio),end=b.fin?iso(b.fin):null;
  if(!isId(oid)||!['EN_PROCESO','PENDIENTE_REFACCION','PENDIENTE_CONTINUIDAD','TERMINADA'].includes(b.estado)||acts.length<5||!start||(b.fin&&!end)||(end&&end<start)||(b.estado==='TERMINADA'&&!end)||!isDate(b.fecha_operativa)||!Array.isArray(b.ejecutantes)||!b.ejecutantes.length||!b.ejecutantes.every(isId))throw error('Completa actividades, fechas y ejecutantes.');
- return tx(async c=>{const o=(await c.query('SELECT * FROM mantix.ordenes_trabajo WHERE id=$1 FOR UPDATE',[oid])).rows[0];if(!o||!['ABIERTA','EN_PROCESO'].includes(o.estado_operativo))throw error('Solo se admiten intervenciones iniciales de ordenes abiertas o en proceso.',409);
- const prior=await c.query('SELECT 1 FROM mantix.intervenciones WHERE orden_id=$1 LIMIT 1',[oid]);if(prior.rowCount)throw error('La orden ya tiene intervenciones. Utiliza continuidad y pendientes.',409); const eq=(await c.query('SELECT equipo_id FROM mantix.orden_equipos WHERE orden_id=$1',[oid])).rows;if(!eq.length)throw error('Orden sin equipo.');const iv=uuid();await c.query(`INSERT INTO mantix.intervenciones(id,orden_id,supervisor_id,fecha_operativa,inicio_real,fin_real,actividades,estado,creada_por) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$3)`,[iv,oid,req.actor.id,b.fecha_operativa,start,end,acts,b.estado]);
+ return tx(async c=>{const duty=await guardDay(c,req.actor.id,b.fecha_operativa);const o=(await c.query('SELECT * FROM mantix.ordenes_trabajo WHERE id=$1 FOR UPDATE',[oid])).rows[0];if(!o||!['ABIERTA','EN_PROCESO'].includes(o.estado_operativo))throw error('Solo se admiten intervenciones iniciales de ordenes abiertas o en proceso.',409);
+ const prior=await c.query('SELECT 1 FROM mantix.intervenciones WHERE orden_id=$1 LIMIT 1',[oid]);if(prior.rowCount)throw error('La orden ya tiene intervenciones. Utiliza continuidad y pendientes.',409); const eq=(await c.query('SELECT equipo_id FROM mantix.orden_equipos WHERE orden_id=$1',[oid])).rows;if(!eq.length)throw error('Orden sin equipo.');const iv=uuid();await c.query(`INSERT INTO mantix.intervenciones(id,orden_id,supervisor_id,fecha_operativa,inicio_real,fin_real,actividades,estado,creada_por,asignacion_turno_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$3,$9)`,[iv,oid,req.actor.id,b.fecha_operativa,start,end,acts,b.estado,duty?.id||null]);
  for(const e of eq)await c.query('INSERT INTO mantix.intervencion_equipos(orden_id,intervencion_id,equipo_id) VALUES($1,$2,$3)',[oid,iv,e.equipo_id]);for(const staff of [...new Set(b.ejecutantes)])await c.query('INSERT INTO mantix.intervencion_ejecutantes(intervencion_id,empleado_id) VALUES($1,$2)',[iv,staff]);
  const state=b.estado==='TERMINADA'?'TERMINADA':handoffStates.includes(b.estado)?'PENDIENTE':'EN_PROCESO';await c.query('UPDATE mantix.ordenes_trabajo SET estado_operativo=$1,version=version+1 WHERE id=$2',[state,oid]);if(state==='TERMINADA')await c.query("UPDATE mantix.ocurrencias_preventivas SET estado='COMPLETADA',completada_en=$1 WHERE orden_id=$2 AND estado='EN_PROCESO'",[end,oid]);await audit(c,req.actor.id,'INTERVENCION_ORDEN_CREADA','intervenciones',iv,{orden_id:oid});return {intervencion_id:iv};});
 }));
@@ -244,6 +292,10 @@ app.patch('/api/v2/bitacora/:id',localWrite,auth,permit('ordenes.registrar'),wra
  if(actividades!==null&&actividades.length<5)throw error('Describe la actividad con al menos 5 caracteres.');
  const fin=b.fin_real==null?null:iso(b.fin_real);if(b.fin_real!=null&&!fin)throw error('Hora final inválida.');
  return tx(async c=>{
+  const probe=(await c.query('SELECT supervisor_id,fecha_operativa,orden_id FROM mantix.intervenciones WHERE id=$1',[id])).rows[0];
+  if(!probe||probe.supervisor_id!==req.actor.id)throw error('No puedes editar esta intervención.',403);
+  await guardDay(c,req.actor.id,probe.fecha_operativa);
+  await c.query('SELECT id FROM mantix.ordenes_trabajo WHERE id=$1 FOR UPDATE',[probe.orden_id]);
   const r=await c.query('SELECT * FROM mantix.intervenciones WHERE id=$1 FOR UPDATE',[id]);const i=r.rows[0];
   if(!i||i.supervisor_id!==req.actor.id)throw error('No puedes editar esta intervención.',403);
   if(i.version!==b.version)throw error('Otro cambio actualizó el registro. Recarga tu bitácora.',409);

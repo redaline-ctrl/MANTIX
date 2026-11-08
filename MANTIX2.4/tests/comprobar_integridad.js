@@ -11,7 +11,7 @@ const revision=read('tools/MANTIX_revision.js');
 const dashboard=read('tools/MANTIX_dashboard.js');
 const html=['MANTIX_login_industrial.html','MANTIX_centro.html','MANTIX_ejecucion.html','MANTIX_pendientes.html','MANTIX_admin_usuarios.html','MANTIX_revision.html','MANTIX_correcciones.html','MANTIX_dashboard.html'];
 for(const f of html){const source=read('tools/'+f);const script=source.match(/<script>([\s\S]*?)<\/script>/i);assert(script,`Sin JavaScript: ${f}`);new vm.Script(script[1],{filename:f});}
-for(const name of ['MANTIX_servidor_acceso_local.js','MANTIX_modulos_completos.js','MANTIX_crear_admin_local.js','MANTIX_revision.js','MANTIX_migrar_revision.js','MANTIX_dashboard.js','MANTIX_dashboard_datos.js','MANTIX_dashboard_export.js'])new vm.Script(read('tools/'+name),{filename:name});
+for(const name of ['MANTIX_servidor_acceso_local.js','MANTIX_modulos_completos.js','MANTIX_crear_admin_local.js','MANTIX_revision.js','MANTIX_migrar_revision.js','MANTIX_dashboard.js','MANTIX_dashboard_datos.js','MANTIX_dashboard_export.js','MANTIX_jornada_guard.js'])new vm.Script(read('tools/'+name),{filename:name});
 assert(core.includes("app.get('/logo-isysa.png'"),'Ruta pública al logotipo para login');
 assert(core.includes("const roles=roleRows.rows.map"),'Inicio de sesión con roles');
 assert(core.includes('s.session.roles=roles.rows.map'),'Rol refrescado en servidor');
@@ -21,7 +21,7 @@ assert(dashboard.includes("const guard=[auth,permit('dashboard.leer')]")&&dashbo
 assert(modules.includes("app.get('/catalogos',auth,permit('catalogos.administrar')"));
 assert(revision.includes("app.get('/revision',auth,permit('revision.gestionar')"));
 assert(modules.includes("if(domingo&&codigo!=='EXTRA')"));
-assert(modules.includes("a.extraordinario&&(!a.inicio_real||!a.fin_real)"));
+assert(modules.includes("a.extraordinario&&(!a.inicio_real||!end"));
 assert(modules.includes("app.get('/api/v2/bitacora'"));
 assert(read('tools/MANTIX_login_industrial.html').includes('Desarrollado por Jacqueline Reda'));
 assert(fs.existsSync(path.join(base,'public/logo.png')));
@@ -32,5 +32,5 @@ assert(core.includes("b.tipo==='PREVENTIVO'"));
 assert(read('tools/MANTIX_centro.html').includes('shiftOverlay'));
 assert(read('tools/MANTIX_centro.html').includes('closeOverlay'));
 assert(fs.existsSync(path.join(base,'database/MIGRACION_002_PROPUESTAS_CATALOGO.sql')));
-console.log('OK: sintaxis de 8 pantallas y 8 módulos JS; rutas protegidas por rol, bitácora, domingo extraordinario, logotipo y crédito.');
+console.log('OK: sintaxis de 8 pantallas y 9 módulos JS; rutas protegidas por rol, bitácora, domingo extraordinario, logotipo y crédito.');
 console.log('Este control es ESTÁTICO; no sustituye pruebas contra PostgreSQL en tu computadora.');

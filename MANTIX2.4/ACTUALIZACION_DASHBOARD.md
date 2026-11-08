@@ -1,6 +1,6 @@
 # MANTIX 2.4 · Dashboard integral
 
-Esta entrega conserva la bitácora y el módulo de revisión. Reemplaza el Dashboard básico por un único tablero con cuatro áreas: mantenimiento, supervisores, trabajadores y revisiones. No agrega tablas ni cambia los registros de trabajo.
+Esta entrega conserva el módulo de revisión. El cierre simplificado del supervisor se documenta en ACTUALIZACION_SUPERVISORES.md. Reemplaza el Dashboard básico por un único tablero con cuatro áreas: mantenimiento, supervisores, trabajadores y revisiones. No agrega tablas ni cambia los registros de trabajo.
 
 ## Instalar en Laragon
 

@@ -38,7 +38,7 @@ La migración 003 agrega dos columnas opcionales a `mantix.intervenciones`: `env
 
 Las decisiones se refieren a intervenciones. La orden conserva su identidad al continuar entre supervisores. El estado operativo de terminada no se interpreta como aprobación. El futuro Dashboard debe usar `estado_revision` para distinguir ejecución de validación.
 
-No se cambió el cierre de 2.4: se siguen entregando los pendientes antes de cerrar y las intervenciones se envían a revisión por separado. Esta entrega no vuelve a introducir POR_INICIAR ni el formulario de versiones anteriores.
+El cierre del supervisor ahora concentra entrega de pendientes y envío de terminados en un único resumen y una sola confirmación desde Mi bitácora. Los pendientes no se envían como terminados. Consulta ACTUALIZACION_SUPERVISORES.md para el procedimiento y la actualización. No se vuelve a introducir POR_INICIAR ni el formulario de versiones anteriores.
 
 ## Validación
 

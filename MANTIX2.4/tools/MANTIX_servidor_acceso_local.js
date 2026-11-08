@@ -174,6 +174,7 @@ app.get('/api/ejecucion/opciones',auth,permit('ordenes.registrar'),async(req,res
     res.json({ok:true,tipos:t.rows,equipos:e.rows,empleados:p.rows,supervisor:req.actor.nombre});
   } catch(err){console.error('Opciones ejecución:',err.message);res.status(503).json({ok:false,error:'No se pudo consultar el catálogo.'});}
 });
+const guardDay=require('./MANTIX_jornada_guard');
 const STATES=new Set(['EN_PROCESO','PENDIENTE_REFACCION','PENDIENTE_CONTINUIDAD','TERMINADA']);
 function validIso(s){return typeof s==='string' && s.length>=20 && s.length<=35 && !Number.isNaN(Date.parse(s)) && /(?:Z|[+-]\d\d:\d\d)$/.test(s);}
 function uniqueIds(a,max){return Array.isArray(a)&&a.length>0&&a.length<=max&&a.every(validUuid)&&new Set(a).size===a.length;}
@@ -220,6 +221,7 @@ app.post('/api/ejecucion/ordenes',localWrite,auth,permit('ordenes.registrar'),as
     if(!type.rowCount||eq.rowCount!==b.equipos.length||staff.rowCount!==b.ejecutantes.length){
       await c.query('ROLLBACK');return res.status(400).json({ok:false,error:'Tipo, equipos o ejecutantes no válidos o inactivos.'});
     }
+    await guardDay(c,req.actor.id,fecha);
     const duty=await c.query(`SELECT id,codigo_turno FROM mantix.asignaciones_turno WHERE supervisor_id=$1 AND fecha_operativa=$2 ORDER BY creado_en DESC LIMIT 1`,[req.actor.id,fecha]);
     const sunday=new Date(fecha+'T12:00:00Z').getUTCDay()===0;
     if(sunday&&(!duty.rowCount||duty.rows[0].codigo_turno!=='EXTRA')){await c.query('ROLLBACK');return res.status(409).json({ok:false,error:'En domingo registra primero tu jornada EXTRA con horario real desde Mi turno.'});}
@@ -247,6 +249,7 @@ app.post('/api/ejecucion/ordenes',localWrite,auth,permit('ordenes.registrar'),as
       WHERE usuario_id=$2 AND clave_cliente=$3 AND operacion='CREAR_ORDEN'`,[orderId,req.actor.id,b.clave_envio]);
     await c.query('COMMIT');return res.status(201).json({ok:true,orden_id:orderId,intervencion_id:interventionId});
   } catch(err){await c.query('ROLLBACK').catch(()=>{});console.error('Guardar ejecución:',err.message);
+    if(err.status)return res.status(err.status).json({ok:false,error:err.message});
     if(err.code==='42P01')return res.status(503).json({ok:false,error:'Falta aplicar la migración 002 de MANTIX 2.3 para equipos y ejecutantes provisionales.'});
     if(err.code==='23505')return res.status(409).json({ok:false,error:'El número de orden ya está registrado.'});
     return res.status(503).json({ok:false,error:'No se pudo guardar el trabajo. Revisa y reintenta con el mismo envío.'});
@@ -363,12 +366,15 @@ app.post('/api/pendientes/:ordenId/continuar',localWrite,auth,permit('pendientes
   const c=await pool.connect();
   try {
     await c.query('BEGIN');
-    // Lock de orden: serializa toma/entrega/continuidad. Misma idempotencia que la creación de órdenes.
-    const order=await c.query('SELECT id,estado_operativo FROM mantix.ordenes_trabajo WHERE id=$1 FOR UPDATE',[req.params.ordenId]);
-    if(!order.rowCount)throw Object.assign(new Error('Orden no encontrada.'),{status:404});
     const prev=await c.query(`SELECT recurso_id FROM mantix.solicitudes_idempotentes
       WHERE usuario_id=$1 AND clave_cliente=$2 AND operacion='CONTINUAR_ORDEN' AND estado='CONFIRMADA'`,[req.actor.id,b.clave_envio]);
     if(prev.rowCount){await c.query('COMMIT');return res.json({ok:true,repetido:true,intervencion_id:prev.rows[0].recurso_id});}
+    const duty=await guardDay(c,req.actor.id,b.fecha_operativa);
+    // Lock de orden: serializa toma/entrega/continuidad. Misma idempotencia que la creación de órdenes.
+    const order=await c.query('SELECT id,estado_operativo FROM mantix.ordenes_trabajo WHERE id=$1 FOR UPDATE',[req.params.ordenId]);
+    if(!order.rowCount)throw Object.assign(new Error('Orden no encontrada.'),{status:404});
+    const confirmed=await c.query("SELECT recurso_id FROM mantix.solicitudes_idempotentes WHERE usuario_id=$1 AND clave_cliente=$2 AND operacion='CONTINUAR_ORDEN' AND estado='CONFIRMADA'",[req.actor.id,b.clave_envio]);
+    if(confirmed.rowCount){await c.query('COMMIT');return res.json({ok:true,repetido:true,intervencion_id:confirmed.rows[0].recurso_id});}
     if(order.rows[0].estado_operativo!=='PENDIENTE')throw Object.assign(new Error('La orden ya no está pendiente.'),{status:409});
     const lock=await c.query('SELECT token FROM mantix.tomas_activas WHERE orden_id=$1 AND supervisor_id=$2 AND token=$3 AND expira_en>now() FOR UPDATE',[req.params.ordenId,req.actor.id,b.token]);
     if(!lock.rowCount)throw Object.assign(new Error('Tu toma ya venció. Actualiza pendientes y vuelve a tomar la orden.'),{status:409});
@@ -383,8 +389,8 @@ app.post('/api/pendientes/:ordenId/continuar',localWrite,auth,permit('pendientes
     if(!claim.rowCount)throw Object.assign(new Error('Envío duplicado o pendiente.'),{status:409});
     const id=crypto.randomUUID();
     await c.query(`INSERT INTO mantix.intervenciones
-      (id,orden_id,supervisor_id,fecha_operativa,inicio_real,fin_real,actividades,estado,creada_por)
-      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$3)`,[id,req.params.ordenId,req.actor.id,b.fecha_operativa,start,end,b.actividades.trim(),b.estado]);
+      (id,orden_id,supervisor_id,fecha_operativa,inicio_real,fin_real,actividades,estado,creada_por,asignacion_turno_id)
+      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$3,$9)`,[id,req.params.ordenId,req.actor.id,b.fecha_operativa,start,end,b.actividades.trim(),b.estado,duty?.id||null]);
     for(const equipoId of b.equipos)await c.query(`INSERT INTO mantix.intervencion_equipos(orden_id,intervencion_id,equipo_id) VALUES($1,$2,$3)`,[req.params.ordenId,id,equipoId]);
     for(const empleadoId of b.ejecutantes)await c.query(`INSERT INTO mantix.intervencion_ejecutantes(intervencion_id,empleado_id) VALUES($1,$2)`,[id,empleadoId]);
     const state=b.estado==='TERMINADA'?'TERMINADA':b.estado==='EN_PROCESO'?'EN_PROCESO':'PENDIENTE';

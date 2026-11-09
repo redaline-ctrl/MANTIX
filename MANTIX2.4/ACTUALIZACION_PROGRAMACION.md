@@ -1,6 +1,6 @@
 # MANTIX 2.4 · Programación interna conectada a la bitácora
 
-El jefe publica trabajos preventivos internos sin número de Easy Maint. Los supervisores con jornada abierta pueden tomarlos desde Mi bitácora; una actividad solo admite un responsable inicial. La programación, la toma y la ejecución no se confunden entre sí.
+El jefe publica trabajos preventivos internos sin número de Easy Maint. Los supervisores con jornada abierta pueden tomarlos desde Pendientes; una actividad solo admite un responsable inicial. La programación, la toma y la ejecución no se confunden entre sí.
 
 ## Origen y tipo de mantenimiento
 
@@ -15,15 +15,15 @@ La modalidad técnica OPERATIVO significa registro sin número; no obliga a clas
 ## Procedimiento
 
 1. **Jefe → Programación preventiva.** Selecciona equipo, fecha e indicaciones. Puede publicar una actividad única o una rutina diaria, semanal o mensual, con intervalo. La recurrencia genera fechas independientes hasta por 12 meses.
-2. **Supervisor → Mi centro.** Ve el aviso con la cantidad de trabajos disponibles y tomados sin iniciar. Se actualiza dentro de la aplicación cada 45 segundos cuando la pantalla está visible; no son mensajes por correo, WhatsApp ni notificaciones del teléfono.
-3. **Supervisor → Mi bitácora → Trabajos internos del jefe.** Despliega disponibles y puede buscar. Se ofrecen tareas de hoy y atrasadas; no las futuras. Se muestran hasta las 100 disponibles más antiguas, con su total. Confirma la jornada actual antes de tomar; la jornada nocturna A puede corresponder al día anterior antes de las 07:00 de Mérida.
+2. **Supervisor → Mi centro.** Ve el aviso con la cantidad de trabajos disponibles y tomados sin iniciar, con acceso directo a Pendientes. Se actualiza dentro de la aplicación cada 45 segundos cuando la pantalla está visible; no son mensajes por correo, WhatsApp ni notificaciones del teléfono.
+3. **Supervisor → Pendientes → Del jefe.** Consulta disponibles y puede buscar. Las otras pestañas son De otros turnos y Tomados por mí; solo se muestra una a la vez. Se ofrecen tareas de hoy y atrasadas; no las futuras. Se muestran hasta las 100 disponibles más antiguas, con su total. Confirma la jornada actual antes de tomar; la jornada nocturna A puede corresponder al día anterior antes de las 07:00 de Mérida.
 4. **Tomar trabajo.** El servidor reserva la actividad a su nombre y reutiliza o crea una única orden interna sin número. Otro supervisor no puede tomarla simultáneamente. La toma inicial persiste al cerrar el navegador y no caduca a los 20 minutos. La reserva breve de la pantalla de continuidad sirve únicamente para que el siguiente supervisor capture su nueva intervención; es un paso distinto.
-5. **Registrar avance.** Se abre el detalle flotante con equipo y actividad ya registrados. El supervisor indica ejecutantes, horarios reales, lo realizado y el estado. No vuelve a capturar la programación como otra orden. Aparece en su bitácora al guardar. El inicio se propone con la hora actual para que lo revise; la hora de fin queda vacía.
+5. **Registrar avance.** Tras tomar el trabajo, se abre automáticamente el detalle flotante en Mi bitácora, con equipo y actividad ya registrados. Si sale sin guardar, encuentra la toma en Pendientes → Tomados por mí, donde puede iniciarla o liberarla con motivo. El supervisor indica ejecutantes, horarios reales, lo realizado y el estado. No vuelve a capturar la programación como otra orden. Aparece en su bitácora al guardar. El inicio se propone con la hora actual para que lo revise; la hora de fin queda vacía.
 6. **Finalizar turno y enviar a revisión.** Los terminados van al jefe; los pendientes se entregan para continuidad. Si tiene una toma sin iniciar, debe registrar el avance o liberarla con motivo antes de cerrar.
 7. **Siguiente turno.** Toma el pendiente entregado y añade su intervención a la misma orden. Se conserva cada supervisor y sus actividades.
 8. **Jefe.** Consulta responsables, avances, continuidad y resultados en la agenda. Los terminados solo quedan validados al aprobar su última intervención y no quedar otras intervenciones terminadas sin aprobar; publicarlos o tomarlos no acredita cumplimiento.
 
-La lista de disponibles queda plegada para no empujar la bitácora hacia abajo. La actualización conserva la búsqueda y el despliegue de esa lista; no recarga los editores de los trabajos registrados ni interrumpe los detalles abiertos.
+Pendientes reúne los trabajos del jefe, la continuidad de otros turnos y las tomas propias sin iniciar. Sus pestañas y búsquedas permiten ver una lista a la vez. Mi bitácora contiene los avances registrados y el cierre; no repite la lista de disponibles. Al guardar una continuación desde Pendientes se abre Mi bitácora para consultar el avance. La actualización conserva la búsqueda y no recarga una captura de continuidad activa.
 
 ## Liberar, cancelar y reprogramar
 
@@ -55,7 +55,7 @@ Las órdenes internas anteriores sin intervenciones se pueden tomar reutilizando
 
 ## Validación y recomendaciones operativas
 
-Se validaron con PostgreSQL y autenticación real: dos supervisores compitiendo por una actividad, idempotencia de la toma del mismo responsable, permisos, jornada abierta y fecha elegible, liberación y retoma sin otra orden, bloqueo de liberación con avances, cancelación con auditoría, toma sin caducidad, cierre con tomas sin iniciar, continuidad hasta aprobación y cumplimiento. Se comprobó que el preventivo interno mantiene número nulo y tipo PREVENTIVO, y que el endpoint antiguo no omite la toma. Se verificó recurrencia y paginación sin repetir registros. Chromium probó publicación por el jefe, aviso, toma/inicio desde bitácora, búsqueda que conserva su estado, formularios sin fin inventado y vista móvil. También pasaron los flujos existentes de supervisor, revisión, Dashboard, navegación y rotación.
+Se validaron con PostgreSQL y autenticación real: dos supervisores compitiendo por una actividad, idempotencia de la toma del mismo responsable, permisos, jornada abierta y fecha elegible, liberación y retoma sin otra orden, bloqueo de liberación con avances, cancelación con auditoría, toma sin caducidad, cierre con tomas sin iniciar, continuidad hasta aprobación y cumplimiento. Se comprobó que el preventivo interno mantiene número nulo y tipo PREVENTIVO, y que el endpoint antiguo no omite la toma. Se verificó recurrencia y paginación sin repetir registros. Chromium probó publicación por el jefe, aviso, aviso que abre Pendientes, toma y liberación en sus pestañas, apertura automática del avance en bitácora, continuidad desde otros turnos, búsqueda que conserva su estado, formularios sin fin inventado y vista móvil. También pasaron los flujos existentes de supervisor, revisión, Dashboard, navegación y rotación.
 
 Para repetir la prueba usar exclusivamente una copia desechable llamada `mantix_revision_test`, las variables PG y `npm run test:programacion`. `PROGRAMACION_BROWSER=1` activa Chromium cuando Playwright está disponible; `CHROMIUM_PATH` permite indicar la ruta. El puerto 3102 debe estar libre. La prueba crea registros en esa copia y se niega a usar otro nombre de base.
 
@@ -64,3 +64,5 @@ Recomiendo probar primero una actividad con dos supervisores: uno la toma y la e
 Para el uso simultáneo real, los supervisores deben entrar a una misma instancia y base compartida. Esta entrega conserva el acceso local 127.0.0.1 para pruebas; la publicación en un servidor compartido es una etapa separada.
 
 No se actualizó automáticamente Laragon, no se publicaron cambios de entorno y no se modificó la base de desarrollo en las pruebas.
+
+El ajuste de ubicación a Pendientes no requiere otra migración: conserva la 004 y las reglas de exclusividad.

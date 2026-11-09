@@ -18,7 +18,7 @@ El botón de cierre de Mi centro y el de Mi turno utilizan el mismo resumen. No 
 
 ## Continuidad
 
-La entrega conserva la intervención del supervisor original. El siguiente supervisor entra en Pendientes recibidos, toma la orden y registra su propia intervención sobre la misma orden. Si existe una jornada para esa fecha, la nueva intervención queda vinculada a ella. Al terminar podrá enviarla al cerrar su propio turno. Si continúa pendiente, la entregará nuevamente.
+La entrega conserva la intervención del supervisor original. El siguiente supervisor entra en Pendientes → De otros turnos, toma la orden y registra su propia intervención sobre la misma orden. Si existe una jornada para esa fecha, la nueva intervención queda vinculada a ella. Al terminar podrá enviarla al cerrar su propio turno. Si continúa pendiente, la entregará nuevamente.
 
 El jefe revisa los terminados enviados. Puede consultar la secuencia completa sin atribuir al último supervisor el trabajo realizado por los anteriores.
 

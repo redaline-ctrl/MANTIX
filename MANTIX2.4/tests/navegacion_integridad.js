@@ -12,8 +12,9 @@ for(const page of pages){
  const html=fs.readFileSync(path.join(base,page),'utf8');
  for(const match of html.matchAll(/\bhref=["'](\/[^"']*)["']/g)){
   if(!match[1].startsWith('//')){
-   if(!routes.has(match[1]))throw Error(`Ruta no registrada ${match[1]} en ${page}`);
-   if(match[1]!=='/' && !(server+modules+revision+dashboard).includes(`'${match[1]}'`))throw Error(`Ruta sin controlador ${match[1]}`);
+   const pathname=new URL(match[1],'http://localhost').pathname;
+   if(!routes.has(pathname))throw Error(`Ruta no registrada ${match[1]} en ${page}`);
+   if(pathname!=='/' && !(server+modules+revision+dashboard).includes(`'${pathname}'`))throw Error(`Ruta sin controlador ${match[1]}`);
    count++;
   }
  }

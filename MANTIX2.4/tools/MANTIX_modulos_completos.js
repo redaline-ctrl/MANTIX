@@ -247,7 +247,7 @@ app.post('/api/v2/preventivos/solicitudes/:id/resolver',...write('preventivos.au
  await c.query('UPDATE mantix.solicitudes_reprogramacion SET estado=$1,autorizador_id=$2,resuelta_en=now() WHERE id=$3',[b.decision,req.actor.id,id]);if(b.decision==='APROBADA'){const moved=await c.query(`UPDATE mantix.ocurrencias_preventivas SET fecha_vigente=$1 WHERE id=$2 AND estado='PROGRAMADA' AND tomada_por IS NULL`,[s.fecha_solicitada,s.ocurrencia_id]);if(!moved.rowCount)throw error('La actividad ya no puede reprogramarse.',409);}
  await audit(c,req.actor.id,'REPROGRAMACION_'+b.decision,'ocurrencias_preventivas',s.ocurrencia_id,{fecha:s.fecha_solicitada});return {decision:b.decision};});
 }));
-app.post('/api/v2/preventivos/:id/crear-orden',...write('ordenes.registrar',async()=>{throw error('Abre Mi bitácora y pulsa Tomar trabajo en la programación disponible.',409);}));
+app.post('/api/v2/preventivos/:id/crear-orden',...write('ordenes.registrar',async()=>{throw error('Abre Pendientes y pulsa Tomar trabajo en los trabajos del jefe.',409);}));
 // HISTORIAL preparado permite intervención directa en una orden preventiva programada.
 app.post('/api/v2/ordenes/:id/intervenir',...write('ordenes.registrar',async(req)=>{
  const oid=req.params.id,b=req.body||{},acts=text(b.actividades,5000),start=iso(b.inicio),end=b.fin?iso(b.fin):null;

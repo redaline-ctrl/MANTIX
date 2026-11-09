@@ -4,6 +4,7 @@ const {Pool}=require('pg');
 if(process.env.PGDATABASE!=='mantix_revision_test')throw Error('Usa solamente la base desechable mantix_revision_test.');
 const pool=new Pool({database:process.env.PGDATABASE});let server,checks=0;
 (async()=>{
+ await require('../tools/MANTIX_migrar_programacion')(pool);
  const migration=fs.readFileSync(path.join(__dirname,'../database/MIGRACION_002_PROPUESTAS_CATALOGO.sql'),'utf8');
  await pool.query(migration.slice(migration.indexOf('CREATE TABLE'),migration.lastIndexOf('COMMIT;')));
  const migrate=require('../tools/MANTIX_migrar_revision');await migrate(pool);await migrate(pool);

@@ -188,7 +188,7 @@ app.post('/api/ejecucion/ordenes',localWrite,auth,permit('ordenes.registrar'),as
   const fecha=b.fecha_operativa;
   if(!['OPERATIVO','CON_ORDEN'].includes(modality)||
      (modality==='CON_ORDEN'?(numero.length<1||numero.length>80):!!numero)||
-     !((modality==='CON_ORDEN'&&b.tipo==='PREVENTIVO')||(modality==='OPERATIVO'&&b.tipo==='OPERATIVO'))||!STATES.has(b.estado)||
+     !((modality==='CON_ORDEN'&&b.tipo==='PREVENTIVO')||(modality==='OPERATIVO'&&['OPERATIVO','PREVENTIVO'].includes(b.tipo)))||!STATES.has(b.estado)||
      desc.length<5||desc.length>3000||acts.length<5||acts.length>5000||
      !/^\d{4}-\d{2}-\d{2}$/.test(fecha||'') ||
      !start || (b.fin && !end) || (end && end<start) ||
@@ -428,13 +428,14 @@ app.get('/api/pendientes/:ordenId/historial',auth,permit('pendientes.gestionar')
 require('./MANTIX_dashboard')(app,{pool,auth,permit});
 require('./MANTIX_revision')(app,{pool,auth,permit,localWrite});
 require('./MANTIX_modulos_completos')(app,{pool,auth,permit,localWrite});
+require('./MANTIX_programacion')(app,{pool,auth,permit,localWrite});
 app.use((_req,res)=>res.status(404).json({ok:false,error:'Ruta no encontrada.'}));
 module.exports=app;
 if(require.main===module){
  let server;
- require('./MANTIX_migrar_revision')(pool).then(()=>{
-  server=app.listen(PORT,HOST,()=>console.log('MANTIX 2.4 · Revisión · http://127.0.0.1:3102/ · Solo desarrollo.'));
+ require('./MANTIX_migrar_revision')(pool).then(()=>require('./MANTIX_migrar_programacion')(pool)).then(()=>{
+  server=app.listen(PORT,HOST,()=>console.log('MANTIX 2.4 · Bitácora y programación · http://127.0.0.1:3102/ · Solo desarrollo.'));
   server.on('error',e=>{console.error(e.message);process.exitCode=1;pool.end();});
- }).catch(e=>{console.error('No se pudo preparar revisión:',e.message);process.exitCode=1;pool.end();});
+ }).catch(e=>{console.error('No se pudo preparar la base de MANTIX:',e.message);process.exitCode=1;pool.end();});
  process.on('SIGINT',()=>{server?.close();pool.end().then(()=>process.exit(0));});
 }

@@ -28,7 +28,7 @@ Entregas nuevas, cambio de estado operativo de esos pendientes, envío de termin
 
 Las altas, ediciones y continuaciones se coordinan con el cierre para impedir agregar o editar trabajos en una jornada ya cerrada. Las correcciones autorizadas conservan su flujo separado.
 
-No agrega tablas ni requiere una migración nueva. Se mantiene la migración 003 de revisión que prepara el servidor al iniciar. No ejecutar el SQL de referencia ni restaurar la base para aplicar esta actualización.
+El cierre no agrega tablas. La conexión posterior de programación usa la migración aditiva 004, documentada en ACTUALIZACION_PROGRAMACION.md. Se mantiene la migración 003 de revisión que prepara el servidor al iniciar. No ejecutar el SQL de referencia ni restaurar la base para aplicar esta actualización.
 
 ## Actualizar en Laragon
 

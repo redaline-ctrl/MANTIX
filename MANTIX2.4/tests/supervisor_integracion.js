@@ -4,6 +4,7 @@ const {Pool}=require('pg');
 if(process.env.PGDATABASE!=='mantix_revision_test')throw Error('Usa solamente la copia desechable mantix_revision_test.');
 const pool=new Pool();let server,checks=0;
 (async()=>{
+ await require('../tools/MANTIX_migrar_programacion')(pool);
  await require('../tools/MANTIX_migrar_revision')(pool);
  const users={};for(const [name,role] of Object.entries({sup:'SUPERVISOR',next:'SUPERVISOR',chief:'JEFE',coord:'COORDINADOR'})){
   const id=uuid(),password=uuid(),username='s'+id;users[name]={id,password,username};

@@ -1,6 +1,6 @@
 # MANTIX 2.4 · Dashboard integral
 
-Esta entrega conserva el módulo de revisión. El cierre simplificado del supervisor se documenta en ACTUALIZACION_SUPERVISORES.md. Reemplaza el Dashboard básico por un único tablero con cuatro áreas: mantenimiento, supervisores, trabajadores y revisiones. No agrega tablas ni cambia los registros de trabajo.
+Esta entrega conserva el módulo de revisión. El cierre simplificado del supervisor se documenta en ACTUALIZACION_SUPERVISORES.md y la programación conectada en ACTUALIZACION_PROGRAMACION.md. Los preventivos internos sin número se cuentan por su tipo PREVENTIVO. Reemplaza el Dashboard básico por un único tablero con cuatro áreas: mantenimiento, supervisores, trabajadores y revisiones. No agrega tablas ni cambia los registros de trabajo.
 
 ## Instalar en Laragon
 

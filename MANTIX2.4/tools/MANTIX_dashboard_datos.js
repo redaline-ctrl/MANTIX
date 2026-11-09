@@ -97,6 +97,7 @@ module.exports.report=async function(pool,input){const f=filters(input),c=await 
    'Horas: se usan intervalos reales completos. En jornadas Q se descuenta 12:00–14:00; las horas por equipo/supervisor no son aditivas para medir ocupación si hubo trabajos simultáneos.',
    'Horas-hombre: solo tiempos individuales registrados, sin multiplicar la duración de la intervención por el número de personas. La cobertura indica los registros completos.',
    'MTTR: N/D; falta identificar reparaciones asociadas a fallas. MTBF y disponibilidad: N/D; faltan registros confiables de operación y paros por falla.',
+   'Origen y tipo son independientes: un preventivo interno no lleva número de Easy Maint, pero se cuenta como PREVENTIVO. OPERATIVO en la modalidad significa registro sin número; no convierte un preventivo en correctivo ni en otro tipo.',
    'Aprobación = aprobadas ÷ (aprobadas + rechazadas) × 100; rechazo = rechazadas ÷ (aprobadas + rechazadas) × 100. Sin resoluciones se muestra N/D.',
    'Distribución preventiva/correctiva = órdenes validadas de ese tipo ÷ total de órdenes validadas × 100. Participación por tipo = pares únicos trabajador–orden de ese tipo ÷ todos los pares del alcance de personal × 100.',
    'MTTR = horas de reparación por fallas ÷ reparaciones; MTBF = horas reales de operación ÷ fallas; disponibilidad = operación ÷ (operación + paro por falla) × 100. Estas fórmulas no se ejecutan con datos insuficientes.',

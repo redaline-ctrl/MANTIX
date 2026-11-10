@@ -6,7 +6,7 @@ const server=fs.readFileSync(path.join(base,'MANTIX_servidor_acceso_local.js'),'
 const modules=fs.readFileSync(path.join(base,'MANTIX_modulos_completos.js'),'utf8');
 const revision=fs.readFileSync(path.join(base,'MANTIX_revision.js'),'utf8');
 const dashboard=fs.readFileSync(path.join(base,'MANTIX_dashboard.js'),'utf8');
-const routes=new Set(['/', '/centro','/bitacora','/historial','/revision','/preventivos','/dashboard','/turnos','/catalogos','/auditoria','/correcciones','/ejecucion','/pendientes','/administracion/usuarios']);
+const routes=new Set(['/', '/centro','/bitacora','/historial','/revision','/preventivos','/dashboard','/turnos','/catalogos','/auditoria','/propuestas','/correcciones','/ejecucion','/pendientes','/administracion/usuarios']);
 let count=0;
 for(const page of pages){
  const html=fs.readFileSync(path.join(base,page),'utf8');

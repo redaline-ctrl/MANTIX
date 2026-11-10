@@ -67,7 +67,7 @@ app.post('/api/login',localWrite,async(req,res)=>{
     return res.json({ok:true,usuario:u.nombre_usuario,nombre:u.nombre_mostrar,permisos:perms,roles});
   }catch(err){console.error('Login:',err.message);return res.status(503).json({ok:false,error:'No fue posible autenticar.'});}
 });
-app.get('/api/me',auth,(req,res)=>res.json({ok:true,usuario:req.actor.usuario,nombre:req.actor.nombre,permisos:req.actor.perms,roles:req.actor.roles||[]}));
+app.get('/api/me',auth,(req,res)=>res.json({ok:true,id:req.actor.id,usuario:req.actor.usuario,nombre:req.actor.nombre,permisos:req.actor.perms,roles:req.actor.roles||[]}));
 app.post('/api/logout',localWrite,auth,(req,res)=>{sessions.delete(req.sessionToken);clearCookie(res);res.json({ok:true});});
 app.get('/api/catalogos/equipos',auth,permit('catalogos.leer'),async(_req,res)=>{try{const r=await pool.query('SELECT id,codigo,nombre,centro_costo_id,activo FROM mantix.equipos ORDER BY nombre,id LIMIT 500');res.json({ok:true,total:r.rowCount,datos:r.rows});}catch{res.status(503).json({ok:false,error:'Consulta no disponible.'});}});
 app.get('/api/catalogos/empleados',auth,permit('catalogos.leer'),async(_req,res)=>{try{const r=await pool.query('SELECT id,clave,nombre,departamento,puesto,activo FROM mantix.empleados ORDER BY nombre,id LIMIT 500');res.json({ok:true,total:r.rowCount,datos:r.rows});}catch{res.status(503).json({ok:false,error:'Consulta no disponible.'});}});

@@ -20,7 +20,8 @@
     "test:dashboard": "node tests/dashboard_integracion.js",
     "test:supervisor": "node tests/supervisor_integracion.js",
     "migrar:programacion": "node tools/MANTIX_migrar_programacion.js",
-    "test:programacion": "node tests/programacion_integracion.js"
+    "test:programacion": "node tests/programacion_integracion.js",
+    "test:administracion": "node tests/administracion_integracion.js"
   },
   "dependencies": {
     "express": "4.22.3",

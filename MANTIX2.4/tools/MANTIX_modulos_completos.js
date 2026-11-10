@@ -26,6 +26,7 @@ app.get('/historial',auth,permit('ordenes.leer'),(_req,res)=>res.sendFile(path.j
 app.get('/preventivos',auth,permit('catalogos.leer'),(_req,res)=>res.sendFile(path.join(__dirname,'MANTIX_centro.html')));
 app.get('/turnos',auth,permit('ordenes.registrar'),(_req,res)=>res.sendFile(path.join(__dirname,'MANTIX_centro.html')));
 app.get('/catalogos',auth,permit('catalogos.administrar'),(_req,res)=>res.sendFile(path.join(__dirname,'MANTIX_centro.html')));
+app.get('/propuestas',auth,permit('catalogos.administrar'),(_req,res)=>res.sendFile(path.join(__dirname,'MANTIX_centro.html')));
 app.get('/auditoria',auth,permit('auditoria.leer'),(_req,res)=>res.sendFile(path.join(__dirname,'MANTIX_centro.html')));
 // HISTORIAL: filtros SQL, historial no editable y equipos/ejecutantes vinculados.
 app.get('/api/v2/historial',...read('ordenes.leer',async(req)=>{

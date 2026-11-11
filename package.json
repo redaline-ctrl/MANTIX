@@ -1,0 +1,34 @@
+{
+  "name": "mantix-isysa-integral",
+  "version": "2.4.0-dev",
+  "private": true,
+  "description": "MANTIX ISYSA | turnos inteligentes, bitácora editable, propuestas de catálogos y control industrial para pruebas locales",
+  "main": "tools/MANTIX_servidor_acceso_local.js",
+  "scripts": {
+    "start": "node tools/MANTIX_servidor_acceso_local.js",
+    "desarrollo": "node tools/MANTIX_servidor_acceso_local.js",
+    "acceso:local": "node tools/MANTIX_servidor_acceso_local.js",
+    "diagnostico": "node tools/MANTIX_diagnostico_PostgreSQL.js",
+    "admin:inicial": "node tools/MANTIX_crear_admin_local.js",
+    "seguridad": "npm audit",
+    "validar:sintaxis": "node tests/comprobar_integridad.js",
+    "comprobar": "node tests/comprobar_integridad.js",
+    "probar:turnos": "node tests/turnos_inteligentes.js",
+    "comprobar:navegacion": "node tests/navegacion_integridad.js",
+    "migrar:revision": "node tools/MANTIX_migrar_revision.js",
+    "test:revision": "node tests/revision_integracion.js",
+    "test:dashboard": "node tests/dashboard_integracion.js",
+    "test:supervisor": "node tests/supervisor_integracion.js",
+    "migrar:programacion": "node tools/MANTIX_migrar_programacion.js",
+    "test:programacion": "node tests/programacion_integracion.js",
+    "test:administracion": "node tests/administracion_integracion.js",
+    "paquete:servidor": "node scripts/preparar_paquete.js"
+  },
+  "dependencies": {
+    "express": "4.22.3",
+    "pg": "8.23.0"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}
